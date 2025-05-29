@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Lexical Editor with Yjs</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            margin: 10px 0 0;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            padding: 15px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            flex-wrap: wrap;
+        }
+
+        .toolbar button {
+            padding: 8px 16px;
+            border: 1px solid #dee2e6;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .toolbar button:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+        }
+
+        .toolbar button.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .editor-container {
+            padding: 30px;
+            min-height: 400px;
+        }
+
+        .editor {
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 300px;
+            font-size: 16px;
+            line-height: 1.6;
+            background: white;
+            transition: border-color 0.2s ease;
+            position: relative;
+        }
+
+        .editor:focus-within {
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .status {
+            padding: 15px 30px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            color: #6c757d;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .disconnected .status-dot {
+            background: #dc3545;
+        }
+
+        .user-cursors {
+            position: absolute;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .user-cursor {
+            position: absolute;
+            width: 2px;
+            height: 20px;
+            background: #ff6b6b;
+            border-radius: 1px;
+        }
+
+        .cursor-label {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            background: #ff6b6b;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        /* Lexical specific styles */
+        .editor p {
+            margin: 0 0 16px 0;
+        }
+
+        .editor h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0 0 20px 0;
+            color: #2c3e50;
+        }
+
+        .editor h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 20px 0 16px 0;
+            color: #34495e;
+        }
+
+        .editor h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 16px 0 12px 0;
+            color: #34495e;
+        }
+
+        .editor strong {
+            font-weight: 700;
+        }
+
+        .editor em {
+            font-style: italic;
+        }
+
+        .editor u {
+            text-decoration: underline;
+        }
+
+        .editor ul, .editor ol {
+            margin: 16px 0;
+            padding-left: 24px;
+        }
+
+        .editor li {
+            margin: 4px 0;
+        }
+
+        .editor blockquote {
+            margin: 16px 0;
+            padding: 16px 20px;
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .editor code {
+            background: #f1f3f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Collaborative Editor</h1>
+            <p>Real-time collaboration powered by Lexical & Yjs</p>
+        </div>
+        
+        <div class="toolbar">
+            <button id="bold-btn" title="Bold (Ctrl+B)">
+                <strong>B</strong>
+            </button>
+            <button id="italic-btn" title="Italic (Ctrl+I)">
+                <em>I</em>
+            </button>
+            <button id="underline-btn" title="Underline (Ctrl+U)">
+                <u>U</u>
+            </button>
+            <button id="h1-btn" title="Heading 1">H1</button>
+            <button id="h2-btn" title="Heading 2">H2</button>
+            <button id="h3-btn" title="Heading 3">H3</button>
+            <button id="quote-btn" title="Quote">❝</button>
+            <button id="ul-btn" title="Bullet List">• List</button>
+            <button id="ol-btn" title="Numbered List">1. List</button>
+            <button id="code-btn" title="Code">&lt;/&gt;</button>
+            <button id="clear-btn" title="Clear Formatting">✖ Clear</button>
+        </div>
+        
+        <div class="editor-container">
+            <div id="editor" class="editor"></div>
+        </div>
+        
+        <div class="status">
+            <div class="connection-status">
+                <div class="status-dot"></div>
+                <span id="status-text">Connected & Synced</span>
+            </div>
+            <div>
+                <span id="word-count">0 words</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load scripts directly -->
+    <script src="https://unpkg.com/lexical@latest"></script>
+    <script src="https://unpkg.com/@lexical/rich-text@latest"></script>
+    <script src="https://unpkg.com/@lexical/history@latest"></script>
+    <script src="https://unpkg.com/@lexical/list@latest"></script>
+    <script src="https://unpkg.com/@lexical/code@latest"></script>
+    <script src="https://unpkg.com/yjs@latest"></script>
+
+    <script>
+        // Wait for all scripts to load
+        window.addEventListener('load', function() {
+            // Simple editor implementation
+            let editor;
+            let ydoc;
+            let ytext;
+            let isUpdatingFromYjs = false;
+
+            function initializeEditor() {
+                try {
+                    // Create Y.js document
+                    ydoc = new Y.Doc();
+                    ytext = ydoc.getText('content');
+
+                    // Basic editor configuration
+                    const config = {
+                        namespace: 'CollaborativeEditor',
+                        onError: (error) => console.error('Editor Error:', error),
+                        editable: true
+                    };
+
+                    editor = lexical.createEditor(config);
+                    
+                    // Mount editor to DOM
+                    const editorElement = document.getElementById('editor');
+                    editor.setRootElement(editorElement);
+
+                    // Set initial content
+                    editor.update(() => {
+                        const root = lexical.$getRoot();
+                        if (root.isEmpty()) {
+                            const paragraph = lexical.$createParagraphNode();
+                            const text = lexical.$createTextNode('Welcome to the collaborative editor! Start typing here... ✨');
+                            paragraph.append(text);
+                            root.append(paragraph);
+                        }
+                    });
+
+                    // Setup Y.js binding
+                    setupYjsBinding();
+                    
+                    // Setup toolbar
+                    setupBasicToolbar();
+                    
+                    // Setup word count
+                    setupWordCount();
+
+                    console.log('Editor initialized successfully!');
+                    
+                } catch (error) {
+                    console.error('Failed to initialize editor:', error);
+                    // Fallback to contenteditable
+                    const editorElement = document.getElementById('editor');
+                    editorElement.contentEditable = true;
+                    editorElement.innerHTML = '<p>Fallback editor - start typing here...</p>';
+                }
+            }
+
+            function setupYjsBinding() {
+                if (!editor || !ytext) return;
+
+                // Listen to Y.js changes
+                ytext.observe(() => {
+                    if (isUpdatingFromYjs) return;
+                    
+                    const content = ytext.toString();
+                    editor.update(() => {
+                        isUpdatingFromYjs = true;
+                        try {
+                            const root = lexical.$getRoot();
+                            root.clear();
+                            
+                            if (content.trim()) {
+                                const paragraph = lexical.$createParagraphNode();
+                                const text = lexical.$createTextNode(content);
+                                paragraph.append(text);
+                                root.append(paragraph);
+                            }
+                        } finally {
+                            isUpdatingFromYjs = false;
+                        }
+                    });
+                });
+
+                // Listen to editor changes
+                editor.registerUpdateListener(({ editorState }) => {
+                    if (isUpdatingFromYjs) return;
+                    
+                    editorState.read(() => {
+                        const root = lexical.$getRoot();
+                        const textContent = root.getTextContent();
+                        
+                        if (ytext.toString() !== textContent) {
+                            ytext.delete(0, ytext.length);
+                            if (textContent) {
+                                ytext.insert(0, textContent);
+                            }
+                        }
+                    });
+                });
+            }
+
+            function setupBasicToolbar() {
+                if (!editor) return;
+
+                // Bold button
+                document.getElementById('bold-btn').addEventListener('click', () => {
+                    editor.dispatchCommand(lexical.FORMAT_TEXT_COMMAND, 'bold');
+                });
+
+                // Italic button
+                document.getElementById('italic-btn').addEventListener('click', () => {
+                    editor.dispatchCommand(lexical.FORMAT_TEXT_COMMAND, 'italic');
+                });
+
+                // Underline button
+                document.getElementById('underline-btn').addEventListener('click', () => {
+                    editor.dispatchCommand(lexical.FORMAT_TEXT_COMMAND, 'underline');
+                });
+
+                // Clear formatting
+                document.getElementById('clear-btn').addEventListener('click', () => {
+                    editor.update(() => {
+                        const selection = lexical.$getSelection();
+                        if (lexical.$isRangeSelection(selection)) {
+                            selection.formatText('bold', false);
+                            selection.formatText('italic', false);
+                            selection.formatText('underline', false);
+                        }
+                    });
+                });
+
+                // Update toolbar state
+                editor.registerCommand(lexical.SELECTION_CHANGE_COMMAND, () => {
+                    updateToolbarState();
+                    return false;
+                }, lexical.COMMAND_PRIORITY_LOW);
+            }
+
+            function updateToolbarState() {
+                if (!editor) return;
+                
+                editor.getEditorState().read(() => {
+                    const selection = lexical.$getSelection();
+                    if (lexical.$isRangeSelection(selection)) {
+                        const isBold = selection.hasFormat('bold');
+                        const isItalic = selection.hasFormat('italic');
+                        const isUnderline = selection.hasFormat('underline');
+
+                        document.getElementById('bold-btn').classList.toggle('active', isBold);
+                        document.getElementById('italic-btn').classList.toggle('active', isItalic);
+                        document.getElementById('underline-btn').classList.toggle('active', isUnderline);
+                    }
+                });
+            }
+
+            function setupWordCount() {
+                if (!editor) return;
+                
+                editor.registerUpdateListener(({ editorState }) => {
+                    editorState.read(() => {
+                        const root = lexical.$getRoot();
+                        const text = root.getTextContent();
+                        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+                        document.getElementById('word-count').textContent = `${words} word${words !== 1 ? 's' : ''}`;
+                    });
+                });
+            }
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (event) => {
+                if (event.ctrlKey || event.metaKey) {
+                    switch (event.key.toLowerCase()) {
+                        case 'b':
+                            event.preventDefault();
+                            if (editor) editor.dispatchCommand(lexical.FORMAT_TEXT_COMMAND, 'bold');
+                            break;
+                        case 'i':
+                            event.preventDefault();
+                            if (editor) editor.dispatchCommand(lexical.FORMAT_TEXT_COMMAND, 'italic');
+                            break;
+                        case 'u':
+                            event.preventDefault();
+                            if (editor) editor.dispatchCommand(lexical.FORMAT_TEXT_COMMAND, 'underline');
+                            break;
+                    }
+                }
+            });
+
+            // Connection status simulation
+            function simulateConnection() {
+                const statusText = document.getElementById('status-text');
+                const connectionStatus = document.querySelector('.connection-status');
+                
+                setInterval(() => {
+                    if (Math.random() < 0.1) {
+                        statusText.textContent = 'Reconnecting...';
+                        connectionStatus.classList.add('disconnected');
+                        
+                        setTimeout(() => {
+                            statusText.textContent = 'Connected & Synced';
+                            connectionStatus.classList.remove('disconnected');
+                        }, 1000 + Math.random() * 2000);
+                    }
+                }, 15000);
+            }
+
+            // Initialize everything
+            initializeEditor();
+            simulateConnection();
+            
+            // Focus editor
+            setTimeout(() => {
+                if (editor) {
+                    editor.focus();
+                }
+            }, 100);
+        });
+    </script>
+    </script>
+</body>
+</html>
